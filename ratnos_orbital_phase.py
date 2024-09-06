@@ -16,6 +16,7 @@ from tudatpy.astro.time_conversion import DateTime
 from tudatpy.astro import element_conversion
 from tudatpy.util import result2array
 from tudatpy.kernel.astro import gravitation
+from tudatpy import astro
 
 
 def get_gravity_enceladus():
@@ -27,37 +28,19 @@ def get_gravity_enceladus():
 
     cosine_coef[0, 0] = 1.0
 
-    cosine_coef[2, 0] = -5.4352E-03 / gravitation.legendre_normalization_factor(2, 0)
+    cosine_coef[2, 0] = 5.4352E-03 / gravitation.legendre_normalization_factor(2, 0) # wrong, correct is -5.4 ...
     cosine_coef[2, 1] = 9.2E-06 / gravitation.legendre_normalization_factor(2, 1)
     cosine_coef[2, 2] = 1.5498E-03 / gravitation.legendre_normalization_factor(2, 2)
 
-    cosine_coef[3, 0] = 1.15E-04 / gravitation.legendre_normalization_factor(3, 0)
+    cosine_coef[3, 0] = -1.15E-04 / gravitation.legendre_normalization_factor(3, 0) # wrong, correct is 1.15 ...
 
     sine_coef[2, 1] = 3.98E-05 / gravitation.legendre_normalization_factor(2, 1)
     sine_coef[2, 2] = 2.26E-05 / gravitation.legendre_normalization_factor(2, 2)
 
     return environment_setup.gravity_field.spherical_harmonic(mu_enceladus, radius_enceladus, cosine_coef, sine_coef, "IAU_Enceladus")
 
-
-def get_gravity_saturn():
-
-    mu_saturn = 3.7931208E+16
-    radius_saturn = 60330000.0
-    cosine_coef_sat = np.zeros((9, 9))
-    sine_coef_sat = np.zeros((9, 9))
-
-    cosine_coef_sat[0, 0] = 1.0
-    cosine_coef_sat[2, 0] = -16290.71E-6 / gravitation.legendre_normalization_factor(2, 0)
-    cosine_coef_sat[4, 0] = 935.83E-6 / gravitation.legendre_normalization_factor(4, 0)
-    cosine_coef_sat[6, 0] = -86.14E-6 / gravitation.legendre_normalization_factor(6, 0)
-    cosine_coef_sat[8, 0] = 10.E-6 / gravitation.legendre_normalization_factor(8, 0)
-
-    return environment_setup.gravity_field.spherical_harmonic(mu_saturn, radius_saturn, cosine_coef_sat, sine_coef_sat, "IAU_Saturn")
-
-
 def getKaulaConstraint(kaula_constraint_multiplier, degree): #
     return kaula_constraint_multiplier / degree ** 2
-
 
 def apply_kaula_constraint_a_priori(kaula_constraint_multiplier, max_deg_gravity, indices_cosine_coef, indices_sine_coef, inv_apriori):
 
@@ -81,7 +64,7 @@ spice.load_standard_kernels(kernels)
 
 
 # Set simulation start and end epochs
-start_gco = 35.3844 * constants.JULIAN_YEAR  # beginning circular orbital phase
+start_gco = 0. * constants.JULIAN_YEAR  # beginning circular orbital phase 35.3844 * constants.JULIAN_YEAR
 end_gco = start_gco + 100.0 * constants.JULIAN_DAY # 35.73 * constants.JULIAN_YEAR  # end circular orbital phase
 
 # Define global propagation settings Enceladus
@@ -93,6 +76,52 @@ central_body = ["Enceladus"]
 # Create default body settings Enceladus
 bodies_to_create = ["Enceladus", "Saturn", "Sun"]
 body_settings = environment_setup.get_default_body_settings(bodies_to_create, global_frame_origin, global_frame_orientation)
+
+# Define the spherical harmonics gravity model for Saturn
+saturn_gravitational_parameter = 3.7931208E+16
+saturn_reference_radius = 60330000.0
+
+# Normalize the spherical harmonic coefficients
+nor_sh_sat=astro.gravitation.normalize_spherical_harmonic_coefficients(
+    [ #Iess et al. 2019, as in the minimal example by Andreas
+        [1, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [-16290.71E-6, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [935.83E-6, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [-86.14E-6, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [10.E-6, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+    [ #Iess et al. 2019, as in the minimal example by Andreas
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ])
+
+# Assign normalized cosine and sine coefficients
+saturn_normalized_cosine_coefficients = nor_sh_sat[0]
+saturn_normalized_sine_coefficients = nor_sh_sat[1]
+
+saturn_associated_reference_frame = "IAU_Saturn"
+
+# Create the gravity field settings and add them to the body "Saturn"
+body_settings.get( "Saturn" ).gravity_field_settings = environment_setup.gravity_field.spherical_harmonic(
+    saturn_gravitational_parameter,
+    saturn_reference_radius,
+    saturn_normalized_cosine_coefficients,
+    saturn_normalized_sine_coefficients,
+    saturn_associated_reference_frame )
+
+# Add setting for moment of inertia for Saturn
+body_settings.get("Saturn").gravity_field_settings.scaled_mean_moment_of_inertia = 0.210
 
 # Compute rotation rate for Enceladus
 mu_saturn = spice.get_body_properties("Saturn", "GM", 1)[0] * 1.0e9
@@ -141,8 +170,8 @@ accelerations_settings_orbiter = dict(
         propagation_setup.acceleration.empirical()
     ],
     Saturn=[
-        propagation_setup.acceleration.spherical_harmonic_gravity(2, 0)
-#        propagation_setup.acceleration.point_mass_gravity()
+#        propagation_setup.acceleration.spherical_harmonic_gravity(2, 0)
+        propagation_setup.acceleration.point_mass_gravity()
     ],
     Sun=[
         propagation_setup.acceleration.radiation_pressure(),
@@ -191,15 +220,21 @@ integrator_moons = propagation_setup.integrator.runge_kutta_fixed_step_size(
 )"""
 
 # Assign initial state in Cartesian coordinates in body-fixed frame
-i#nitial_state_enceladus_fixed = np.array(initial_state_enceladus_fixed_list)
+#initial_state_enceladus_fixed = np.array(initial_state_enceladus_fixed_list)
 
 # Get rotation matrix between IAU_Enceladus and global_frame_orientation
 rotation_matrix = spice.compute_rotation_matrix_between_frames("IAU_Enceladus",global_frame_orientation, arc_start_times[0])
+rotation_matrix_back = spice.compute_rotation_matrix_between_frames(global_frame_orientation,"IAU_Enceladus", arc_start_times[0] )
 
 # Assign initial state in Cartesian coordinates in inertial frame
 initial_state = np.ndarray([6])
-initial_state[0:3] = [475323.709, 102991.720, -48576.955] # J2000
-initial_state[3:6] = [3.009, 75.062, 95.705] # J2000
+initial_state[0:3] = [475323.709, 102991.720, -48576.955] #rotation_matrix.dot(initial_state_enceladus_fixed[0:3]) #[475323.709, 102991.720, -48576.955]
+initial_state[3:6] = [3.009, 75.062, 95.705] #rotation_matrix.dot(initial_state_enceladus_fixed[3:6]) #[3.009, 75.062, 95.705]
+
+print("initial state cartesian inertial")
+print(initial_state)
+print("initial state cartesian fixed rotated")
+print(rotation_matrix_back.dot(initial_state[0:3]))
 
 initial_states = []
 for i in range(nb_arcs):
@@ -229,7 +264,14 @@ simulation_results = simulator.propagation_results.single_arc_results
 # Manually define Enceladus ground stations (s1, s2, s3)
 station_names = ["s1", "s2", "s3"]
 
-station_coordinates = {station_names[0]: [0.0, np.deg2rad(0.0), np.deg2rad(0.0)], station_names[1]: [0.0, np.deg2rad(10.0), np.deg2rad(0.0)], station_names[2]: [0.0, np.deg2rad(5.0), np.deg2rad(10.0)]}
+s1_longitude=180.
+s1_latitude=0.
+s2_longitude=190.
+s2_latitude=0.
+s3_longitude=185.
+s3_latitude=10.
+
+station_coordinates = {station_names[0]: [0.0, np.deg2rad(s1_longitude), np.deg2rad(s1_latitude)], station_names[1]: [0.0, np.deg2rad(s2_longitude), np.deg2rad(s2_latitude)], station_names[2]: [0.0, np.deg2rad(s3_longitude), np.deg2rad(s3_latitude)]}
 
 print("station coordinates", station_coordinates)
 
@@ -378,6 +420,9 @@ parameters_to_estimate = estimation_setup.create_parameter_set(parameter_setting
 estimation_setup.print_parameter_names(parameters_to_estimate)
 nb_parameters = len(parameters_to_estimate.parameter_vector)
 print("Number of parameters to estimate", len(parameters_to_estimate.parameter_vector))
+print(parameters_to_estimate.parameter_vector[1813:1816])
+print(parameters_to_estimate.parameter_vector[1816:1819])
+print(parameters_to_estimate.parameter_vector[1819:1822])
 
 # Create the estimator
 estimator = numerical_simulation.Estimator(bodies, parameters_to_estimate, observation_settings_list, propagator_settings)
@@ -478,8 +523,8 @@ covariance_input = estimation.CovarianceAnalysisInput(simulated_observations, in
 covariance_input.define_covariance_settings(reintegrate_variational_equations=False, save_design_matrix=True)
 
 # Apply weights to simulated observations
-doppler_noise = 12.0e-6
-range_noise = 0.2
+doppler_noise = 12.0e-8
+range_noise = 0.02
 weights_per_observable = {observation.n_way_averaged_doppler_type: doppler_noise ** -2,
                           observation.n_way_range_type: range_noise ** -2}
 covariance_input.set_constant_weight_per_observable(weights_per_observable)
@@ -553,22 +598,24 @@ ax.view_init(0, 0)
 ax.grid()
 
 # Plot Orbiter ground track during first propagation arc
-fig = plt.figure(dpi=800)
-ax2 = fig.add_subplot(111)
+fig = plt.figure(dpi=500)
+ax = fig.add_subplot(111)
 enceladus_map = '../propagation/enceladus_map03602.jpg'
-ax2.imshow(plt.imread(enceladus_map), extent = [0, 360, -90, 90])
+ax.imshow(plt.imread(enceladus_map), extent = [0, 360, -90, 90])
 
 # Resolve 2pi ambiguity longitude
 for k in range(len(dependent_variables_first_arc)):
     if dependent_variables_first_arc[k, 2] < 0:
         dependent_variables_first_arc[k, 2] = dependent_variables_first_arc[k, 2] + 2.0 * np.pi
-ax2.plot(dependent_variables_first_arc[:, 2]*180/np.pi, dependent_variables_first_arc[:, 1]*180.0/np.pi, '.', markersize=1.0, color='blue', fillstyle='full')
-
-ax2.set_xlabel('Longitude [deg]')
-ax2.set_ylabel('Latitude [deg]')
-ax2.set_xticks(np.arange(0, 361, 40))
-ax2.set_yticks(np.arange(-90, 91, 30))
-ax2.set_title('Orbiter ground track over one day')
+ax.plot(dependent_variables_first_arc[:, 2]*180/np.pi, dependent_variables_first_arc[:, 1]*180.0/np.pi, '.', markersize=1.0, color='blue', fillstyle='full')
+plt.scatter(s1_longitude, s1_latitude)
+plt.scatter(s2_longitude, s2_latitude)
+plt.scatter(s3_longitude, s3_latitude)
+ax.set_xlabel('Longitude [deg]')
+ax.set_ylabel('Latitude [deg]')
+ax.set_xticks(np.arange(0, 361, 40))
+ax.set_yticks(np.arange(-90, 91, 30))
+ax.set_title('Orbiter ground track over one day')
 
 
 # Plot weighted partials
@@ -612,7 +659,7 @@ plt.tight_layout()
 # plt.tight_layout()
 
 
-# Retrieve Doppler observation times for the first arc. For now only s3, but should eventually include all three stations
+# Retrieve Doppler observation times for the first arc
 sorted_observations = simulated_observations.sorted_observation_sets
 # doppler_obs_times_new_forcia_first_arc = [(t-start_gco)/3600.0 for t in sorted_observations[observation.n_way_averaged_doppler_type][0][0].observation_times if t <= start_gco+arc_duration]
 # doppler_obs_times_cebreros_first_arc = [(t-start_gco)/3600.0 for t in sorted_observations[observation.n_way_averaged_doppler_type][1][0].observation_times if t <= start_gco+arc_duration]
@@ -685,9 +732,9 @@ for deg in range(2, max_deg_enceladus_gravity+1):
 # Plot Enceladus's gravity spectrum
 plt.figure(dpi=400)
 plt.plot(apriori_cosine_per_deg, label='Cosine Kaula constraint')
-plt.plot(formal_errors_cosine_per_deg, label='Cosine estimated')
+plt.plot(formal_errors_cosine_per_deg, label='Cosine estimated errors')
 plt.plot(apriori_sine_per_deg, label='Sine Kaula constraint')
-plt.plot(formal_errors_sine_per_deg, label='Sine estimated')
+plt.plot(formal_errors_sine_per_deg, label='Sine estimated errors')
 plt.grid()
 plt.yscale("log")
 plt.ylabel('RMS gravity coefficients')
@@ -699,8 +746,12 @@ plt.legend()
 print("apriori_cosine_per_deg", apriori_cosine_per_deg)
 print("apriori_sine_per_deg", apriori_sine_per_deg)
 
-print("formal_errors_cosine_per_deg", formal_errors_cosine_per_deg)
-print("formal_errors_sine_per_deg", formal_errors_sine_per_deg)
+#print("formal_errors_cosine_per_deg", formal_errors_cosine_per_deg)
+#print("formal_errors_sine_per_deg", formal_errors_sine_per_deg)
 
 # Show all plots
 plt.show()
+
+print(parameters_to_estimate.parameter_vector[1813:1816])
+print(parameters_to_estimate.parameter_vector[1816:1819])
+print(parameters_to_estimate.parameter_vector[1819:1822])
