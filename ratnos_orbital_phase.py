@@ -23,8 +23,8 @@ def get_gravity_enceladus():
 
     mu_enceladus = 7.211292085479989E+9
     radius_enceladus = 252240.0
-    cosine_coef = np.zeros((4, 4))
-    sine_coef = np.zeros((4, 4))
+    cosine_coef = np.zeros((10, 10))
+    sine_coef = np.zeros((10, 10))
 
     cosine_coef[0, 0] = 1.0
 
@@ -58,7 +58,6 @@ def apply_kaula_constraint_a_priori(kaula_constraint_multiplier, max_deg_gravity
 
 
 # Load spice kernels
-#kernels = ['C:\TudatProjects\Estimation\kernel_juice.bsp', 'C:\TudatProjects\Estimation\kernel_noe.bsp',
 kernels = ['C:\TudatProjects\OrbitIntegration\de438.bsp', 'C:\TudatProjects\OrbitIntegration\sat427.bsp', 'C:\TudatProjects\OrbitIntegration\pck00010.tpc']
 spice.load_standard_kernels(kernels)
 
@@ -170,8 +169,7 @@ accelerations_settings_orbiter = dict(
         propagation_setup.acceleration.empirical()
     ],
     Saturn=[
-#        propagation_setup.acceleration.spherical_harmonic_gravity(2, 0)
-        propagation_setup.acceleration.point_mass_gravity()
+        propagation_setup.acceleration.spherical_harmonic_gravity(8, 8)
     ],
     Sun=[
         propagation_setup.acceleration.radiation_pressure(),
@@ -206,21 +204,8 @@ integrator_moons = propagation_setup.integrator.runge_kutta_fixed_step_size(
 
 
 # Define arc-wise initial states for Orbiter wrt. Enceladus.
-# The initial states are extracted from Orbiter's SPICE ephemeris (JUICE's SPICE ID is -28) at the start of each propagation arc.
+# The initial states need to be provided at the start of each propagation arc.
 # need to provide initial states for stable orbits in an inertial frame! Take K2 in body-fixed frame, transform to an inertial frame
-
-"""initial_state_enceladus_fixed_list = element_conversion.keplerian_to_cartesian_elementwise(
-    gravitational_parameter=7.211292085479989E+9,
-    semi_major_axis=0.490400e+06,
-    eccentricity=0.759474232e-01,
-    inclination=np.deg2rad(5.62500000e+01),
-    argument_of_periapsis=np.deg2rad(2.68144032e+02),
-    longitude_of_ascending_node=np.deg2rad(2.41719177e+02),
-    true_anomaly=np.deg2rad(8.31499110e+01),
-)"""
-
-# Assign initial state in Cartesian coordinates in body-fixed frame
-#initial_state_enceladus_fixed = np.array(initial_state_enceladus_fixed_list)
 
 # Get rotation matrix between IAU_Enceladus and global_frame_orientation
 rotation_matrix = spice.compute_rotation_matrix_between_frames("IAU_Enceladus",global_frame_orientation, arc_start_times[0])
@@ -231,20 +216,29 @@ initial_state = np.ndarray([6])
 initial_state[0:3] = [475323.709, 102991.720, -48576.955] #rotation_matrix.dot(initial_state_enceladus_fixed[0:3]) #[475323.709, 102991.720, -48576.955]
 initial_state[3:6] = [3.009, 75.062, 95.705] #rotation_matrix.dot(initial_state_enceladus_fixed[3:6]) #[3.009, 75.062, 95.705]
 
-print("initial state cartesian inertial")
-print(initial_state)
-print("initial state cartesian fixed rotated")
-print(rotation_matrix_back.dot(initial_state[0:3]))
+#print("initial state cartesian inertial")
+#print(initial_state)
+#print("initial state cartesian fixed rotated")
+#print(rotation_matrix_back.dot(initial_state[0:3]))
 
 initial_states = []
 for i in range(nb_arcs):
     initial_states.append(initial_state)
-#    initial_states.append(spice.get_body_cartesian_state_at_epoch("-28", "Enceladus", "J2000", "None", arc_start_times[i]))
+#initial_states.append(spice.get_body_cartesian_state_at_epoch("-28", "Enceladus", "J2000", "None", arc_start_times[i])) #this is Juice
 
 # Define dependent variables to be saved during propagation
 dependent_variables_names = [
     propagation_setup.dependent_variable.latitude("Orbiter", "Enceladus"),
-    propagation_setup.dependent_variable.longitude("Orbiter", "Enceladus")
+    propagation_setup.dependent_variable.longitude("Orbiter", "Enceladus"),
+    propagation_setup.dependent_variable.single_acceleration_norm(
+        propagation_setup.acceleration.spherical_harmonic_gravity_type, "Orbiter", "Enceladus"
+    ),
+    propagation_setup.dependent_variable.single_acceleration_norm(
+        propagation_setup.acceleration.spherical_harmonic_gravity_type, "Orbiter", "Saturn"
+    ),
+    propagation_setup.dependent_variable.total_acceleration("Orbiter"),
+    propagation_setup.dependent_variable.keplerian_state("Orbiter", "Enceladus"),
+    propagation_setup.dependent_variable.altitude("Orbiter", "Enceladus")
 ]
 
 # Define arc-wise propagator settings
@@ -273,7 +267,7 @@ s3_latitude=10.
 
 station_coordinates = {station_names[0]: [0.0, np.deg2rad(s1_longitude), np.deg2rad(s1_latitude)], station_names[1]: [0.0, np.deg2rad(s2_longitude), np.deg2rad(s2_latitude)], station_names[2]: [0.0, np.deg2rad(s3_longitude), np.deg2rad(s3_latitude)]}
 
-print("station coordinates", station_coordinates)
+#print("station coordinates", station_coordinates)
 
 for station in station_names:
     environment_setup.add_ground_station(
@@ -362,7 +356,7 @@ viability_settings = []
 
 # For all tracking stations, check if elevation is sufficient Enceladus
 for station in station_names:
-    viability_settings.append(observation.elevation_angle_viability(["Enceladus", station], np.deg2rad(15.0)))
+    viability_settings.append(observation.elevation_angle_viability(["Enceladus", station], np.deg2rad(10.0)))
 # Check whether Enceladus or Saturn are occulting the signal
 viability_settings.append(observation.body_occultation_viability(["Orbiter", ""], "Enceladus"))
 #viability_settings.append(observation.body_occultation_viability(["Orbiter", ""], "Saturn"))
@@ -431,7 +425,7 @@ estimator = numerical_simulation.Estimator(bodies, parameters_to_estimate, obser
 simulated_observations = estimation.simulate_observations(observation_simulation_settings, estimator.observation_simulators, bodies)
 
 
-# Define a priori covariance matrix
+# Define a priori covariance matrix # values are uncertainties
 inv_apriori = np.zeros((nb_parameters, nb_parameters))
 
 # Set a priori constraints for Orbiter state(s)
@@ -444,7 +438,7 @@ for i in range(indices_states[1]//6):
         inv_apriori[indices_states[0]+i*6+j+3, indices_states[0]+i*6+j+3] = a_priori_velocity**-2  # a priori velocity
 
 # Set a priori constraint for Enceladus's gravitational parameter
-a_priori_mu = 7.211292085479989E+9 #0.03e9
+a_priori_mu = 0.0211292085479989E+9 #7.211292085479989E+9 #0.03e9 #this is the uncertainty on gm see Cassini results for Enceladus
 indices_mu = parameters_to_estimate.indices_for_parameter_type((estimation_setup.parameter.gravitational_parameter_type, ("Enceladus", "")))[0]
 for i in range(indices_mu[1]):
     inv_apriori[indices_mu[0]+i, indices_mu[0]+i] = a_priori_mu**-2
@@ -457,12 +451,12 @@ indices_cosine_coef = (nb_arcs*6+1, nb_cosine_coef)
 indices_sine_coef = parameters_to_estimate.indices_for_parameter_type((estimation_setup.parameter.spherical_harmonics_sine_coefficient_block_type, ("Enceladus", "")))[0]
 
 # Apply Kaula's constraint to Enceladus's gravity field a priori
-kaula_constraint_multiplier = 1.0e-5
+kaula_constraint_multiplier = 4.0e-4
 apply_kaula_constraint_a_priori(kaula_constraint_multiplier, max_deg_enceladus_gravity, indices_cosine_coef, indices_sine_coef, inv_apriori)
 
 ## Overwrite Kaula's rule with existing uncertainties for C20 and C22
-apriori_C20 = 2.9e-6
-apriori_C22 = 0.87e-6
+apriori_C20 = 1.e-6 #2.9e-6
+apriori_C22 = 1.e-7 #0.87e-6
 inv_apriori[indices_cosine_coef[0], indices_cosine_coef[0]] = apriori_C20**-2
 inv_apriori[indices_cosine_coef[0]+2, indices_cosine_coef[0]+2] = apriori_C22**-2
 
@@ -494,7 +488,7 @@ for i in range(indices_emp_acc[1]):
     inv_apriori[indices_emp_acc[0] + i, indices_emp_acc[0] + i] = a_priori_emp_acc ** -2
 
 # Set a priori constraints for ground station positions
-a_priori_station = 0.03
+a_priori_station = 0.03 # this is the last uncertainty
 for station in station_names:
     indices_station_pos = parameters_to_estimate.indices_for_parameter_type((estimation_setup.parameter.ground_station_position_type, ("Enceladus", station)))[0]
     for i in range(indices_station_pos[1]):
@@ -523,8 +517,8 @@ covariance_input = estimation.CovarianceAnalysisInput(simulated_observations, in
 covariance_input.define_covariance_settings(reintegrate_variational_equations=False, save_design_matrix=True)
 
 # Apply weights to simulated observations
-doppler_noise = 12.0e-8
-range_noise = 0.02
+doppler_noise = 12.0e-6
+range_noise = 0.2
 weights_per_observable = {observation.n_way_averaged_doppler_type: doppler_noise ** -2,
                           observation.n_way_range_type: range_noise ** -2}
 covariance_input.set_constant_weight_per_observable(weights_per_observable)
@@ -539,8 +533,8 @@ formal_errors = covariance_output.formal_errors
 partials = covariance_output.weighted_design_matrix
 
 # Print the formal errors
-print('Formal errors')
-print(covariance_output.formal_errors)
+#print('Formal errors')
+#print(covariance_output.formal_errors)
 
 ## # COMMENTED FOR NOW NO CONSIDER PARAMETERS BECAUSE OF OBS BIAS PARTIAL ISSUE # Don't activate this
 ## # Retrieve results with consider parameters
@@ -556,7 +550,6 @@ print(covariance_output.formal_errors)
 ## # Propagate formal errors (TO BE FIXED, NOT YET POSSIBLE FOR MULTI-ARC) # Don't activate this
 ## output_times = np.arange(start_gco, end_gco, 3600.0)
 ## propagated_formal_errors = estimation.propagate_formal_errors_rsw_split_output(covariance_output, estimator, output_times)
-
 
 ## PLOTS
 
@@ -752,6 +745,30 @@ print("apriori_sine_per_deg", apriori_sine_per_deg)
 # Show all plots
 plt.show()
 
+### Accelerations over time
+"""
+plt.figure(figsize=(9, 5))
+
+# Spherical Harmonics Gravity Acceleration Enceladus
+time_hours = dependent_variables_first_arc[:,0]/3600
+acceleration_norm_sh_enceladus = dependent_variables_first_arc[:, 3]
+plt.plot(time_hours, acceleration_norm_sh_enceladus, label='SH Enceladus')
+
+# Spherical Harmonics Gravity Acceleration Saturn
+acceleration_norm_sh_saturn = dependent_variables_first_arc[:, 4]
+plt.plot(time_hours, acceleration_norm_sh_saturn, label='SH Saturn')
+
+plt.xlim([min(time_hours), max(time_hours)])
+plt.xlabel('Time [hr]')
+plt.ylabel('Acceleration Norm [m/s$^2$]')
+
+plt.legend(bbox_to_anchor=(1.005, 1))
+plt.suptitle("Accelerations norms on Orbiter, distinguished by type and origin, over the course of propagation.")
+plt.yscale('log')
+plt.grid()
+plt.tight_layout()
+plt.show()
+"""
 print(parameters_to_estimate.parameter_vector[1813:1816])
 print(parameters_to_estimate.parameter_vector[1816:1819])
 print(parameters_to_estimate.parameter_vector[1819:1822])
