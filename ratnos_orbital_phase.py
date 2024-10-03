@@ -182,7 +182,8 @@ acceleration_models = propagation_setup.create_acceleration_models(
 
 
 # Define propagation arcs during GCO (one day long) Enceladus
-arc_duration = 0.5 * constants.JULIAN_DAY
+arc_duration = 0.4 * constants.JULIAN_DAY
+print('arc duration', arc_duration/3600.0)
 
 arc_start_times = []
 arc_end_times = []
@@ -258,12 +259,12 @@ simulation_results = simulator.propagation_results.single_arc_results
 # Manually define Enceladus ground stations (s1, s2, s3)
 station_names = ["s1", "s2", "s3"]
 
-s1_longitude=180.
+s1_longitude=0.
 s1_latitude=0.
-s2_longitude=190.
+s2_longitude=90.
 s2_latitude=0.
-s3_longitude=185.
-s3_latitude=10.
+s3_longitude=180.
+s3_latitude=0.
 
 station_coordinates = {station_names[0]: [0.0, np.deg2rad(s1_longitude), np.deg2rad(s1_latitude)], station_names[1]: [0.0, np.deg2rad(s2_longitude), np.deg2rad(s2_latitude)], station_names[2]: [0.0, np.deg2rad(s3_longitude), np.deg2rad(s3_latitude)]}
 
@@ -289,11 +290,13 @@ for station in station_names:
 
 # Define tracking arcs (arc duration is set to 8h/day during GCO) Enceladus
 # The tracking arcs are (arbitrarily) set to start 2h after the start of each propagation arc.
-tracking_arc_duration = 8.0 * 3600.0
+#tracking_arc_duration = 8.0 * 3600.0
+tracking_arc_duration = 0.99*arc_duration
 tracking_arcs_start = []
 tracking_arcs_end = []
 for arc_start in arc_start_times:
-    tracking_arc_start = arc_start + 2.0 * 3600.0
+#    tracking_arc_start = arc_start + 2.0 * 3600.0
+    tracking_arc_start = arc_start + 0.01 * 3600.0
     tracking_arcs_start.append(tracking_arc_start)
     tracking_arcs_end.append(tracking_arc_start + tracking_arc_duration)
 
@@ -356,12 +359,12 @@ viability_settings = []
 
 # For all tracking stations, check if elevation is sufficient Enceladus
 for station in station_names:
-    viability_settings.append(observation.elevation_angle_viability(["Enceladus", station], np.deg2rad(10.0)))
+    viability_settings.append(observation.elevation_angle_viability(["Enceladus", station], np.deg2rad(30.0)))
 # Check whether Enceladus or Saturn are occulting the signal
-viability_settings.append(observation.body_occultation_viability(["Orbiter", ""], "Enceladus"))
+    #viability_settings.append(observation.body_occultation_viability(["Orbiter", ""], "Enceladus"))
 #viability_settings.append(observation.body_occultation_viability(["Orbiter", ""], "Saturn"))
 # Check whether SEP angle is sufficiently large
-viability_settings.append(observation.body_avoidance_viability(["Orbiter", ""], "Sun", np.deg2rad(5.0)))
+    viability_settings.append(observation.body_avoidance_viability(["Orbiter", ""], "Sun", np.deg2rad(5.0)))
 
 # Apply viability checks to all simulated observations
 observation.add_viability_check_to_all(observation_simulation_settings, viability_settings)
@@ -577,7 +580,7 @@ ax = fig.add_subplot(111, projection='3d')
 ax.set_proj_type('ortho')
 ax.set_aspect('equal')
 ax.plot(propagated_state_first_arc_body_fixed[:, 1]/1e3, propagated_state_first_arc_body_fixed[:, 2]/1e3, propagated_state_first_arc_body_fixed[:, 3]/1e3, linestyle='-', color='black', linewidth=0.5)
-ax.set_title('Orbiter orbit wrt Enceladus over one period')
+ax.set_title('Orbiter orbit wrt Enceladus over one arc')
 ax.set_xlim(-500, 500)
 ax.set_ylim(-500, 500)
 ax.set_zlim(-500, 500)
@@ -590,8 +593,31 @@ ax.set_zticks([-400, -200, 0, 200, 400])
 ax.view_init(0, 0)
 ax.grid()
 
+
+### Ground track
+# Plot ground track for the simulation period
+fig = plt.figure(figsize=(9, 5), dpi=500)
+ax = fig.add_subplot(111)
+latitude = dependent_variables_first_arc[:, 1]*180/np.pi
+longitude = dependent_variables_first_arc[:, 2]*180/np.pi
+plt.title("Ground track of Orbiter")
+ax.plot(longitude, latitude, '.', markersize=1.0, color='blue', fillstyle='full')
+plt.scatter(s1_longitude, s1_latitude, color='blue')
+plt.scatter(s2_longitude, s2_latitude, color='red')
+plt.scatter(s3_longitude, s3_latitude, color='green')
+ax.set_xlabel('Longitude [deg]')
+ax.set_ylabel('Latitude [deg]')
+ax.set_xticks(np.arange(-150, 200, step=50))
+ax.set_xlim([min(longitude), max(longitude)])
+ax.set_yticks(np.arange(-80, 100, step=20))
+ax.set_ylim([-90, 90])
+plt.grid()
+plt.tight_layout()
+plt.show()
+
+
 # Plot Orbiter ground track during first propagation arc
-fig = plt.figure(dpi=500)
+"""fig = plt.figure(dpi=500)
 ax = fig.add_subplot(111)
 enceladus_map = '../propagation/enceladus_map03602.jpg'
 ax.imshow(plt.imread(enceladus_map), extent = [0, 360, -90, 90])
@@ -601,15 +627,15 @@ for k in range(len(dependent_variables_first_arc)):
     if dependent_variables_first_arc[k, 2] < 0:
         dependent_variables_first_arc[k, 2] = dependent_variables_first_arc[k, 2] + 2.0 * np.pi
 ax.plot(dependent_variables_first_arc[:, 2]*180/np.pi, dependent_variables_first_arc[:, 1]*180.0/np.pi, '.', markersize=1.0, color='blue', fillstyle='full')
-plt.scatter(s1_longitude, s1_latitude)
-plt.scatter(s2_longitude, s2_latitude)
-plt.scatter(s3_longitude, s3_latitude)
+plt.scatter(s1_longitude, s1_latitude, color='blue')
+plt.scatter(s2_longitude, s2_latitude, color='red')
+plt.scatter(s3_longitude, s3_latitude, color='green')
 ax.set_xlabel('Longitude [deg]')
 ax.set_ylabel('Latitude [deg]')
 ax.set_xticks(np.arange(0, 361, 40))
 ax.set_yticks(np.arange(-90, 91, 30))
-ax.set_title('Orbiter ground track over one day')
-
+ax.set_title('Orbiter ground track over one arc')
+"""
 
 # Plot weighted partials
 plt.figure(figsize=(9, 6), dpi=400)
@@ -668,9 +694,9 @@ print("sorted_observations[observation.n_way_averaged_doppler_type][2][0].observ
 plt.figure(dpi=400)
 # plt.plot(doppler_obs_times_new_forcia_first_arc, np.ones((len(doppler_obs_times_new_forcia_first_arc),1 )))
 # plt.plot(doppler_obs_times_cebreros_first_arc, 2.0 * np.ones((len(doppler_obs_times_cebreros_first_arc),1 )))
-plt.plot(doppler_obs_times_s1_first_arc, 1.0 * np.ones((len(doppler_obs_times_s1_first_arc),1 )))
-plt.plot(doppler_obs_times_s2_first_arc, 2.0 * np.ones((len(doppler_obs_times_s2_first_arc),1 )))
-plt.plot(doppler_obs_times_s3_first_arc, 3.0 * np.ones((len(doppler_obs_times_s3_first_arc),1 )))
+plt.plot(doppler_obs_times_s1_first_arc, 1.0 * np.ones((len(doppler_obs_times_s1_first_arc),1 )), color='blue')
+plt.plot(doppler_obs_times_s2_first_arc, 2.0 * np.ones((len(doppler_obs_times_s2_first_arc),1 )), color='red')
+plt.plot(doppler_obs_times_s3_first_arc, 3.0 * np.ones((len(doppler_obs_times_s3_first_arc),1 )), color='green')
 plt.xlabel('Observation times [h]')
 plt.ylabel('')
 plt.yticks([1, 2, 3], ['S1', 'S2', 'S3'])
@@ -726,8 +752,8 @@ for deg in range(2, max_deg_enceladus_gravity+1):
 plt.figure(dpi=400)
 plt.plot(apriori_cosine_per_deg, label='Cosine Kaula constraint')
 plt.plot(formal_errors_cosine_per_deg, label='Cosine estimated errors')
-plt.plot(apriori_sine_per_deg, label='Sine Kaula constraint')
-plt.plot(formal_errors_sine_per_deg, label='Sine estimated errors')
+#plt.plot(apriori_sine_per_deg, label='Sine Kaula constraint')
+#plt.plot(formal_errors_sine_per_deg, label='Sine estimated errors')
 plt.grid()
 plt.yscale("log")
 plt.ylabel('RMS gravity coefficients')
