@@ -58,7 +58,7 @@ def apply_kaula_constraint_a_priori(kaula_constraint_multiplier, max_deg_gravity
 
 
 # Load spice kernels
-kernels = ['C:\TudatProjects\OrbitIntegration\de438.bsp', 'C:\TudatProjects\OrbitIntegration\sat427.bsp', 'C:\TudatProjects\OrbitIntegration\pck00010.tpc']
+kernels = ['/home/neumwl/TudatProjects/de438.bsp', '/home/neumwl/TudatProjects/sat427.bsp', '/home/neumwl/TudatProjects/pck00010.tpc']
 spice.load_standard_kernels(kernels)
 
 
@@ -260,15 +260,15 @@ simulation_results = simulator.propagation_results.single_arc_results
 station_names = ["s1", "s2", "s3"]
 
 s1_longitude=0.
-s1_latitude=0.
-s2_longitude=90.
+s1_latitude=90.
+s2_longitude=0.
 s2_latitude=0.
-s3_longitude=180.
-s3_latitude=0.
+s3_longitude=0.
+s3_latitude=-90.
 
-station_coordinates = {station_names[0]: [0.0, np.deg2rad(s1_longitude), np.deg2rad(s1_latitude)], station_names[1]: [0.0, np.deg2rad(s2_longitude), np.deg2rad(s2_latitude)], station_names[2]: [0.0, np.deg2rad(s3_longitude), np.deg2rad(s3_latitude)]}
+station_coordinates = {station_names[0]: [0.0, np.deg2rad(s1_latitude), np.deg2rad(s1_longitude)], station_names[1]: [0.0, np.deg2rad(s2_latitude), np.deg2rad(s2_longitude)], station_names[2]: [0.0, np.deg2rad(s3_latitude), np.deg2rad(s3_longitude)]}
 
-#print("station coordinates", station_coordinates)
+print("station coordinates", station_coordinates)
 
 for station in station_names:
     environment_setup.add_ground_station(
@@ -359,12 +359,12 @@ viability_settings = []
 
 # For all tracking stations, check if elevation is sufficient Enceladus
 for station in station_names:
-    viability_settings.append(observation.elevation_angle_viability(["Enceladus", station], np.deg2rad(30.0)))
+    viability_settings.append(observation.elevation_angle_viability(["Enceladus", station], np.deg2rad(10.0)))
 # Check whether Enceladus or Saturn are occulting the signal
     #viability_settings.append(observation.body_occultation_viability(["Orbiter", ""], "Enceladus"))
 #viability_settings.append(observation.body_occultation_viability(["Orbiter", ""], "Saturn"))
 # Check whether SEP angle is sufficiently large
-    viability_settings.append(observation.body_avoidance_viability(["Orbiter", ""], "Sun", np.deg2rad(5.0)))
+    #viability_settings.append(observation.body_avoidance_viability(["Orbiter", ""], "Sun", np.deg2rad(5.0)))
 
 # Apply viability checks to all simulated observations
 observation.add_viability_check_to_all(observation_simulation_settings, viability_settings)
@@ -417,9 +417,9 @@ parameters_to_estimate = estimation_setup.create_parameter_set(parameter_setting
 estimation_setup.print_parameter_names(parameters_to_estimate)
 nb_parameters = len(parameters_to_estimate.parameter_vector)
 print("Number of parameters to estimate", len(parameters_to_estimate.parameter_vector))
-print(parameters_to_estimate.parameter_vector[1813:1816])
-print(parameters_to_estimate.parameter_vector[1816:1819])
-print(parameters_to_estimate.parameter_vector[1819:1822])
+print(parameters_to_estimate.parameter_vector[len(parameters_to_estimate.parameter_vector)-9:len(parameters_to_estimate.parameter_vector)-6])
+print(parameters_to_estimate.parameter_vector[len(parameters_to_estimate.parameter_vector)-6:len(parameters_to_estimate.parameter_vector)-3])
+print(parameters_to_estimate.parameter_vector[len(parameters_to_estimate.parameter_vector)-3:len(parameters_to_estimate.parameter_vector)])
 
 # Create the estimator
 estimator = numerical_simulation.Estimator(bodies, parameters_to_estimate, observation_settings_list, propagator_settings)
@@ -574,6 +574,7 @@ for i in range(num_rows):
     propagated_state_first_arc_body_fixed[i,1:4] = rotation_matrix_back.dot(propagated_state_first_arc[i,1:4])
     propagated_state_first_arc_body_fixed[i,4:7] = rotation_matrix_back.dot(propagated_state_first_arc[i,4:7])
 
+plt.ioff()
 fig = plt.figure(figsize=(6,6), dpi=400)
 # Plot trajectory of Orbiter during first propagation arc
 ax = fig.add_subplot(111, projection='3d')
@@ -597,9 +598,16 @@ ax.grid()
 ### Ground track
 # Plot ground track for the simulation period
 fig = plt.figure(figsize=(9, 5), dpi=500)
+
 ax = fig.add_subplot(111)
 latitude = dependent_variables_first_arc[:, 1]*180/np.pi
 longitude = dependent_variables_first_arc[:, 2]*180/np.pi
+if s1_longitude>180.0:
+    s1_longitude = s1_longitude-360.0
+if s2_longitude>180.0:
+    s2_longitude = s2_longitude+360.0
+if s3_longitude>180.0:
+    s3_longitude = s3_longitude-360.0
 plt.title("Ground track of Orbiter")
 ax.plot(longitude, latitude, '.', markersize=1.0, color='blue', fillstyle='full')
 plt.scatter(s1_longitude, s1_latitude, color='blue')
@@ -613,8 +621,6 @@ ax.set_yticks(np.arange(-80, 100, step=20))
 ax.set_ylim([-90, 90])
 plt.grid()
 plt.tight_layout()
-plt.show()
-
 
 # Plot Orbiter ground track during first propagation arc
 """fig = plt.figure(dpi=500)
@@ -638,6 +644,7 @@ ax.set_title('Orbiter ground track over one arc')
 """
 
 # Plot weighted partials
+plt.ioff()
 plt.figure(figsize=(9, 6), dpi=400)
 plt.imshow(np.log10(np.abs(partials)), aspect='auto', interpolation='none')
 cb = plt.colorbar()
@@ -660,6 +667,7 @@ plt.tight_layout()
 # plt.title('Effect consider parameters')
 
 # Plot correlations (default)
+plt.ioff()
 plt.figure(figsize=(9, 6), dpi=400)
 plt.imshow(np.abs(correlations), aspect='auto', interpolation='none')
 plt.colorbar()
@@ -686,11 +694,13 @@ doppler_obs_times_s1_first_arc = [(t-start_gco)/3600.0 for t in sorted_observati
 doppler_obs_times_s2_first_arc = [(t-start_gco)/3600.0 for t in sorted_observations[observation.n_way_averaged_doppler_type][1][0].observation_times if t <= start_gco+arc_duration]
 doppler_obs_times_s3_first_arc = [(t-start_gco)/3600.0 for t in sorted_observations[observation.n_way_averaged_doppler_type][2][0].observation_times if t <= start_gco+arc_duration]
 
-print("sorted_observations[observation.n_way_averaged_doppler_type][0][0].observation_times", np.shape(sorted_observations[observation.n_way_averaged_doppler_type][0][0].observation_times))
-print("sorted_observations[observation.n_way_averaged_doppler_type][1][0].observation_times", np.shape(sorted_observations[observation.n_way_averaged_doppler_type][1][0].observation_times))
-print("sorted_observations[observation.n_way_averaged_doppler_type][2][0].observation_times", np.shape(sorted_observations[observation.n_way_averaged_doppler_type][2][0].observation_times))
+print("np.shape(sorted_observations[observation.n_way_averaged_doppler_type][0][0].observation_times)", np.shape(sorted_observations[observation.n_way_averaged_doppler_type][0][0].observation_times))
+print("np.shape(sorted_observations[observation.n_way_averaged_doppler_type][1][0].observation_times)", np.shape(sorted_observations[observation.n_way_averaged_doppler_type][1][0].observation_times))
+print("np.shape(sorted_observations[observation.n_way_averaged_doppler_type][2][0].observation_times)", np.shape(sorted_observations[observation.n_way_averaged_doppler_type][2][0].observation_times))
+print("doppler_obs_times_s1_first_arc", doppler_obs_times_s1_first_arc)
 
-# Plot observation times (for now only for s3, but designed to eventually include all three stations)
+# Plot observation times
+plt.ioff()
 plt.figure(dpi=400)
 # plt.plot(doppler_obs_times_new_forcia_first_arc, np.ones((len(doppler_obs_times_new_forcia_first_arc),1 )))
 # plt.plot(doppler_obs_times_cebreros_first_arc, 2.0 * np.ones((len(doppler_obs_times_cebreros_first_arc),1 )))
@@ -749,6 +759,7 @@ for deg in range(2, max_deg_enceladus_gravity+1):
 
 
 # Plot Enceladus's gravity spectrum
+plt.ioff()
 plt.figure(dpi=400)
 plt.plot(apriori_cosine_per_deg, label='Cosine Kaula constraint')
 plt.plot(formal_errors_cosine_per_deg, label='Cosine estimated errors')
@@ -795,6 +806,6 @@ plt.grid()
 plt.tight_layout()
 plt.show()
 """
-print(parameters_to_estimate.parameter_vector[1813:1816])
-print(parameters_to_estimate.parameter_vector[1816:1819])
-print(parameters_to_estimate.parameter_vector[1819:1822])
+print(parameters_to_estimate.parameter_vector[len(parameters_to_estimate.parameter_vector)-9:len(parameters_to_estimate.parameter_vector)-6])
+print(parameters_to_estimate.parameter_vector[len(parameters_to_estimate.parameter_vector)-6:len(parameters_to_estimate.parameter_vector)-3])
+print(parameters_to_estimate.parameter_vector[len(parameters_to_estimate.parameter_vector)-3:len(parameters_to_estimate.parameter_vector)])
