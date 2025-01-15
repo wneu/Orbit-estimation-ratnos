@@ -51,6 +51,7 @@ For more information on J2000 and the conversion between different temporal refe
 
 # Load spice kernels
 spice.load_standard_kernels()
+spice.get_total_count_of_kernels_loaded()
 
 # Set simulation start and end epochs
 simulation_start_epoch = DateTime(2000, 1, 1).epoch()
@@ -358,13 +359,14 @@ Ultimately, the `Estimator` object consolidates all relevant information require
 
 Underneath its hood, upon creation, the estimator automatically takes care of setting up the relevant Observation Simulator and Variational Equations which will subsequently be required for the simulation of observations and the estimation of parameters, respectively.
 """
-
+print("here")
 # Create the estimator
 estimator = numerical_simulation.Estimator(
     bodies,
     parameters_to_estimate,
     observation_settings_list,
     propagator_settings)
+print("here")
 
 ### Perform the observations simulation
 """
