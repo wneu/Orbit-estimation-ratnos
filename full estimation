@@ -441,7 +441,7 @@ observation_settings_list = []
 for link_end in link_ends:
     link_definition = observation.LinkDefinition(link_end)
     observation_settings_list.append(observation.n_way_doppler_averaged(link_definition, [light_time_correction_settings]))
-    observation_settings_list.append(observation.two_way_range(link_definition, [light_time_correction_settings], range_bias_settings))
+    observation_settings_list.append(observation.n_way_range(link_definition, [light_time_correction_settings], range_bias_settings))
 
 
 ### Define Observation Simulation Settings
@@ -506,11 +506,20 @@ for station in station_names:
 observation.add_viability_check_to_all(observation_simulation_settings, viability_settings)
 
 # Add noise levels of roughly 3.3E-12 [s/m] and add this as Gaussian noise to the observation
+doppler_noise = 1.0e-2
+range_noise = 0.5
 noise_level = 1.0E-3
 observation.add_gaussian_noise_to_observable(
     observation_simulation_settings, #[observation_simulation_settings]
-    noise_level,
-    observation.one_way_instantaneous_doppler_type
+    doppler_noise,
+    observation.n_way_averaged_doppler_type
+    #observation.one_way_instantaneous_doppler_type
+)
+observation.add_gaussian_noise_to_observable(
+    observation_simulation_settings, #[observation_simulation_settings]
+    range_noise,
+    observation.n_way_range_type
+    #observation.one_way_instantaneous_doppler_type
 )
 
 ## Set up the estimation
@@ -533,7 +542,7 @@ parameter_settings = estimation_setup.parameter.initial_states(propagator_settin
 
 ## Add Enceladus's gravitational parameter. Add estimated parameters to the sensitivity matrix that will be propagated
 parameter_settings.append(estimation_setup.parameter.gravitational_parameter("Enceladus"))
-parameter_settings.append(estimation_setup.parameter.constant_drag_coefficient("Orbiter"))
+#parameter_settings.append(estimation_setup.parameter.constant_drag_coefficient("Orbiter"))
 
 ## Add Enceladus's gravity field spherical harmonics coefficients
 max_deg_enceladus_gravity = 3
@@ -561,9 +570,9 @@ parameters_to_estimate = estimation_setup.create_parameter_set(parameter_setting
 estimation_setup.print_parameter_names(parameters_to_estimate)
 nb_parameters = len(parameters_to_estimate.parameter_vector)
 print("Number of parameters to estimate", len(parameters_to_estimate.parameter_vector))
-print(parameters_to_estimate.parameter_vector[len(parameters_to_estimate.parameter_vector)-9:len(parameters_to_estimate.parameter_vector)-6])
-print(parameters_to_estimate.parameter_vector[len(parameters_to_estimate.parameter_vector)-6:len(parameters_to_estimate.parameter_vector)-3])
-print(parameters_to_estimate.parameter_vector[len(parameters_to_estimate.parameter_vector)-3:len(parameters_to_estimate.parameter_vector)])
+#print(parameters_to_estimate.parameter_vector[len(parameters_to_estimate.parameter_vector)-9:len(parameters_to_estimate.parameter_vector)-6])
+#print(parameters_to_estimate.parameter_vector[len(parameters_to_estimate.parameter_vector)-6:len(parameters_to_estimate.parameter_vector)-3])
+#print(parameters_to_estimate.parameter_vector[len(parameters_to_estimate.parameter_vector)-3:len(parameters_to_estimate.parameter_vector)])
 
 
 ### Creating the Estimator object
@@ -640,7 +649,12 @@ estimation_input.define_estimation_settings(
     reintegrate_variational_equations=False)
 
 # Define weighting of the observations in the inversion
-weights_per_observable = {estimation_setup.observation.one_way_instantaneous_doppler_type: noise_level ** -2}
+weights_per_observable = dict()
+weights_per_observable[observation.n_way_averaged_doppler_type] = doppler_noise ** -2
+weights_per_observable[observation.n_way_range_type] = range_noise ** -2
+#weights_per_observable = {estimation_setup.observation.one_way_instantaneous_doppler_type: noise_level ** -2}
+#weights_per_observable = {estimation_setup.observation.n_way_doppler_averaged: noise_level ** -2}
+#weights_per_observable = {estimation_setup.observation.n_way_range: noise_level ** -2}
 estimation_input.set_constant_weight_per_observable(weights_per_observable)
 
 ### Estimate the individual parameters
@@ -728,6 +742,9 @@ expect to see a Gaussian distribution with zero mean here.
 print('True-to-formal-error ratio:')
 print('\nInitial state')
 print(((truth_parameters - parameters_to_estimate.parameter_vector) / estimation_output.formal_errors)[:6])
+print((truth_parameters)[:6])
+print((parameters_to_estimate.parameter_vector)[:6])
+print((truth_parameters-parameters_to_estimate.parameter_vector)[:6])
 print('\nPhysical parameters')
 print(((truth_parameters - parameters_to_estimate.parameter_vector) / estimation_output.formal_errors)[6:])
 
