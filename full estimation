@@ -75,7 +75,7 @@ Finally, the system of bodies is created using the settings. This system of bodi
 
 # Set simulation start and end epochs
 start_gco = 0. * constants.JULIAN_YEAR  # beginning circular orbital phase 35.3844 * constants.JULIAN_YEAR
-end_gco = start_gco + 10.0 * constants.JULIAN_DAY # 35.73 * constants.JULIAN_YEAR  # end circular orbital phase
+end_gco = start_gco + 0.5 * constants.JULIAN_DAY # 35.73 * constants.JULIAN_YEAR  # end circular orbital phase
 
 # Create default body settings for bodies_to_create, with "Enceladus"/"J2000" as the global frame origin and orientation
 global_frame_origin = "Enceladus"
@@ -260,7 +260,7 @@ acceleration_models = propagation_setup.create_acceleration_models(
     central_bodies)
 
 # Define propagation arcs during GCO (one day long) Enceladus
-arc_duration = 0.8 * constants.JULIAN_DAY
+arc_duration = 0.5 * constants.JULIAN_DAY
 print('arc duration', arc_duration/3600.0)
 
 arc_start_times = []
@@ -373,13 +373,13 @@ station_names = ["s1", "s2", "s3"]
 
 s1_altitude=0.
 s1_longitude=0.
-s1_latitude=90.
+s1_latitude=80.
 s2_altitude=0.
-s2_longitude=0.
+s2_longitude=45.
 s2_latitude=0.
 s3_altitude=0.
-s3_longitude=0.
-s3_latitude=-90.
+s3_longitude=180.
+s3_latitude=-60.
 
 station_coordinates = {station_names[0]: [0.0, np.deg2rad(s1_latitude), np.deg2rad(s1_longitude)], station_names[1]: [0.0, np.deg2rad(s2_latitude), np.deg2rad(s2_longitude)], station_names[2]: [0.0, np.deg2rad(s3_latitude), np.deg2rad(s3_longitude)]}
 
