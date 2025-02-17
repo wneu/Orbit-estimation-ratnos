@@ -741,6 +741,7 @@ expect to see a Gaussian distribution with zero mean here.
 
 print('True-to-formal-error ratio:')
 print('\nInitial state')
+print((estimation_output.formal_errors)[:6])
 print(((truth_parameters - parameters_to_estimate.parameter_vector) / estimation_output.formal_errors)[:6])
 print((truth_parameters)[:6])
 print((parameters_to_estimate.parameter_vector)[:6])
