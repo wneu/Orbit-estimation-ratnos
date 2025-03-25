@@ -28,8 +28,7 @@ from tudatpy import astro
 ## Define a set of radar positions for grid search
 
 nposit = 3  # number of positions
-nradars = 3  # number of radars per iteration
-
+nradars = 2  # number of radars per iteration
 
 # Function for converting cartesian coordinates to geodetic ones
 def cartesian_to_geodetic(x, y, z):  # not used
@@ -41,7 +40,6 @@ def cartesian_to_geodetic(x, y, z):  # not used
     # Perform the coordinate transformation
     lon, lat, alt = pyproj.transform(ecef, lla, x, y, z, radians=False)
     return lat, lon, alt
-
 
 # Function for defining equidistant radar positions set along a Fibonacci spiral
 def fibonacci_sphere(samples=10):
@@ -71,11 +69,11 @@ longi = fibonacci_sphere(nposit)[0::2]
 latit = fibonacci_sphere(nposit)[1::2]
 
 radars = []
-for i in range(len(longi)):
-    radars.append((longi[i], latit[i]))
+for m in range(len(longi)):
+    radars.append((longi[m], latit[m]))
 
 print(len(longi))
-print(radars)
+#print(radars)
 
 radars_combis = itertools.combinations(radars, nradars)
 
@@ -85,30 +83,32 @@ combis_list = list(radars_combis)
 ## Print the result
 print("All possible combinations of 2 radars:")
 print(len(combis_list))
-print(combis_list)
+#print(combis_list)
 
-# Ab hier eine for-Schleife für die Definition der stations und die estimation procedure
+"""
+ First, NAIF's `SPICE` kernels are loaded, to make the positions of various bodies such as the Enceladus, the Sun, 
+ and Saturn known to `tudatpy`.
+ Subsequently, the start and end epoch of the simulation are defined. Note that using `tudatpy`, the times are generally 
+ specified in seconds since J2000. Hence, setting the start epoch to `0` corresponds to the 1st of January 2000. 
+ The end epoch specifies a total duration of the simulation.
+ For more information on J2000 and the conversion between different temporal reference frames, please refer to the 
+ API documentation of the [`time_conversion module`](https://tudatpy.readthedocs.io/en/latest/time_conversion.html).
+ """
+
+# Load spice kernels
+spice.load_standard_kernels()
+kernels = ['/home/neumwl/TudatProjects/de438.bsp', '/home/neumwl/TudatProjects/sat427.bsp',
+           '/home/neumwl/TudatProjects/pck00010.tpc']
+spice.load_standard_kernels(kernels)
+
+# Ab hier eine while-Schleife für die Definition der stations und die estimation procedure
 
 normdiff = []
 
-i = 0
-while i < len(combis_list):
+k = 0
+while k < len(combis_list):
 
     ## Configuration
-    """
-    First, NAIF's `SPICE` kernels are loaded, to make the positions of various bodies such as the Enceladus, the Sun, 
-    and Saturn known to `tudatpy`.
-    Subsequently, the start and end epoch of the simulation are defined. Note that using `tudatpy`, the times are generally 
-    specified in seconds since J2000. Hence, setting the start epoch to `0` corresponds to the 1st of January 2000. 
-    The end epoch specifies a total duration of the simulation.
-    For more information on J2000 and the conversion between different temporal reference frames, please refer to the 
-    API documentation of the [`time_conversion module`](https://tudatpy.readthedocs.io/en/latest/time_conversion.html).
-    """
-
-    # Load spice kernels
-    path = os.path.dirname(__file__)
-    kernels = [path+'/de438.bsp', path+'/sat427.bsp', path+'/pck00010.tpc']
-    spice.load_standard_kernels(kernels)
 
     ## Set up the environment
     """
@@ -364,7 +364,7 @@ while i < len(combis_list):
     # print(rotation_matrix_back.dot(initial_state[0:3]))
 
     initial_states = []
-    for i in range(nb_arcs):
+    for l in range(nb_arcs):
         initial_states.append(initial_state)
 
     ### Create the integrator settings
@@ -405,13 +405,16 @@ while i < len(combis_list):
     # Create propagation settings
     # Define arc-wise propagator settings
     propagator_settings_list = []
-    for i in range(nb_arcs):
+    for j in range(nb_arcs):
         propagator_settings_list.append(propagation_setup.propagator.translational(
-            central_bodies, acceleration_models, bodies_to_propagate, initial_states[i], arc_start_times[i],
-            integrator_settings, propagation_setup.propagator.time_termination(arc_end_times[i])))  # ,
+            central_bodies, acceleration_models, bodies_to_propagate, initial_states[j], arc_start_times[j],
+            integrator_settings, propagation_setup.propagator.time_termination(arc_end_times[j])))  # ,
     #        propagation_setup.propagator.cowell, dependent_variables_names)
 
     # Concatenate all arc-wise propagator settings into multi-arc propagator settings
-    propagator_settings = propagation_setup.propagator.multi_arc(propagator_settings_list)
+    #propagator_settings = propagation_setup.propagator.multi_arc(propagator_settings_list)
+
+    k += 1
+    print('k =',k)
 
 print(normdiff)
