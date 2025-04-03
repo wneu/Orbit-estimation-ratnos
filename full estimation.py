@@ -113,7 +113,7 @@ normdiff=[]
 
 k=0
 while k < len(combis_list):
-    print('\nk=',k)
+    print('\nk =',k)
     ## Configuration
 
     ## Set up the environment
